@@ -1,4 +1,4 @@
-from arcpy import AddMessage, AddWarning, AddError, Parameter
+from arcpy import AddMessage
 import requests
 from os import path
 from zipfile import ZipFile
@@ -107,17 +107,24 @@ def get_product_proc_level(product_folder):
             product_proc_level = instruments[y] + '_' + instruments_idx[y] + ' BUNDLE ' + spec_procs[y] + ' ' + geom_procs[y] + ' ' + rad_procs[y]
         else:
             product_proc_level = instruments[y] + '_' + instruments_idx[y] + ' PANSHARPENED ' + spec_procs[y] + ' ' + geom_procs[y] + ' ' + rad_procs[y]
-    AddMessage(product_proc_level)
     return product_proc_level
 
 def publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle):
-    import arcgis
-    from arcgis.gis import GIS
-    import arcpy
-    gis = GIS('Pro', verify_cert=False)
 
-    #archive_base_name = path.splitext(product_resource_id)[0]
-    #archive_local_path = path.join(download_dir, archive_base_name)
+    AddMessage('*********publish_layer parameters*********')
+    AddMessage('infiles: ' + str(infiles))
+    AddMessage('airbus_raster_type: ' + airbus_raster_type)
+    AddMessage('product_proc_level: ' + product_proc_level)
+    AddMessage('layer_name: ' + layer_name)
+    AddMessage('layer_type: ' + layer_type)
+    AddMessage('make_image_collection: ' + make_image_collection)
+    AddMessage('pansharpen_from_bundle: ' + pansharpen_from_bundle)
+
+    if layer_type == 'Dynamic Imagery Layer':
+        tiles_only_bool = False
+    else:
+        tiles_only_bool = True
+    AddMessage('tiles_only_bool: ' + str(tiles_only_bool))
 
     for product in infiles:
         AddMessage('inFiles: ' + product)
@@ -128,388 +135,87 @@ def publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, l
         infiles = infiles[0]
 
     if airbus_raster_type == 'Pleiades-1':
-        if product_proc_level.split()[4] == 'DISPLAY':
-            if layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'true':
-                # PHR Dynamic Imagery Layer, ORTHO DISPLAY
-                from arcgis.raster.analytics import create_image_collection
-                AddMessage('Publishing layer: ' + layer_name)
-                create_image_collection_layer = create_image_collection(image_collection=layer_name, 
-                                                                        input_rasters=infiles,
-                                                                        raster_type_name=airbus_raster_type,
-                                                                        raster_type_params={"productType":"ORTHO DISPLAY",
-                                                                                            "processingTemplate":"Pansharpen Display",
-                                                                                            "pansharpenType":"Gram-Schmidt",
-                                                                                            "filter":"SharpenMore",
-                                                                                            "pansharpenWeights":"0.9 0.75 0.5 0.5",
-                                                                                            "constantZ":-9999},
-                                                                        context={"outSR":{"wkid":3857},
-                                                                                        "bandMapping":[{"bandName":"Red",
-                                                                                                        "wavelengthMin":620,
-                                                                                                        "wavelengthMax":700},
-                                                                                                        {"bandName":"Green",
-                                                                                                        "wavelengthMin":510,
-                                                                                                        "wavelengthMax":590},
-                                                                                                        {"bandName":"Blue",
-                                                                                                        "wavelengthMin":450,
-                                                                                                        "wavelengthMax":530},
-                                                                                                        {"bandName":"NearInfrared",
-                                                                                                        "wavelengthMin":775,
-                                                                                                        "wavelengthMax":915}],
-                                                                                        "buildFootprints":True,
-                                                                                        "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                                                "minValue":1,
-                                                                                                                "maxValue":None,
-                                                                                                                "shrinkDistance":50,
-                                                                                                                "skipOverviews":True,
-                                                                                                                "updateBoundary":True,
-                                                                                                                "maintainEdge":False,
-                                                                                                                "simplification":"None",
-                                                                                                                "numVertices":20,
-                                                                                                                "minThinnessRatio":0.05,
-                                                                                                                "maxSliverSize":20,
-                                                                                                                "requestSize":2000,
-                                                                                                                "minRegionSize":100},
-                                                                                                                "buildOverview":True},
-                                                                        tiles_only=False,
-                                                                        gis = gis
-                                                                        )
-            else:
-                if layer_type == 'Tiled Imagery Layer' or (layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'false'):
-                    # PHR Tiled Imagery Layer, ORTHO DISPLAY
-                    from arcgis.raster.analytics import copy_raster
-                    copy_raster_op = copy_raster(input_raster=infiles, 
-                                                output_name=layer_name, 
-                                                raster_type_name=airbus_raster_type,
-                                                tiles_only=tiles_only_bool,
-                                                raster_type_params={"productType":"ORTHO DISPLAY",
-                                                                    "processingTemplate":"Pansharpen Display",
-                                                                    "pansharpenType":"Gram-Schmidt",
-                                                                    "filter":"SharpenMore",
-                                                                    "pansharpenWeights":"0.9 0.75 0.5 0.5",
-                                                                    "constantZ":-9999},
-                                                context={"outSR":{"wkid":3857},
-                                                            "resamplingMethod":"BILINEAR",
-                                                            "compression":"LERC 0",
-                                                            "bandMapping":[{"bandName":"Red",
-                                                                            "wavelengthMin":620,
-                                                                            "wavelengthMax":700},
-                                                                        {"bandName":"Green",
-                                                                            "wavelengthMin":510,
-                                                                            "wavelengthMax":590},
-                                                                        {"bandName":"Blue",
-                                                                            "wavelengthMin":450,
-                                                                            "wavelengthMax":530},
-                                                                        {"bandName":"NearInfrared",
-                                                                            "wavelengthMin":775,
-                                                                            "wavelengthMax":915}],
-                                                            "buildFootprints":True,
-                                                            "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                "minValue":1,
-                                                                                "maxValue":None,
-                                                                                "shrinkDistance":50,
-                                                                                "skipOverviews":True,
-                                                                                "updateBoundary":True,
-                                                                                "maintainEdge":False,
-                                                                                "simplification":"None",
-                                                                                "numVertices":20,
-                                                                                "minThinnessRatio":0.05,
-                                                                                "maxSliverSize":20,
-                                                                                "requestSize":2000,
-                                                                                "minRegionSize":100},
-                                                            "defineNodata":True,
-                                                            "noDataArguments":{"noDataValues":[0],
-                                                                            "numberOfBand":99,
-                                                                            "compositeValue":True}},
-                                                gis = gis)
-    
-        else: 
-            if product_proc_level.split()[4] == 'REFLECTANCE':
-                if layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'true':
-                    # PHR Dynamic Imagery Layer, ORTHO REFLECTANCE
-                    from arcgis.raster.analytics import create_image_collection
-                    AddMessage('Publishing layer: ' + layer_name)
-                    create_image_collection_layer = create_image_collection(image_collection=layer_name, 
-                                                                            input_rasters=infiles,
-                                                                            raster_type_name=airbus_raster_type,
-                                                                            raster_type_params={"productType":"ORTHO REFLECTANCE",
-                                                                                                "processingTemplate":"Pansharpen Reflectance",
-                                                                                                "pansharpenType":"Gram-Schmidt",
-                                                                                                "filter":"SharpenMore",
-                                                                                                "pansharpenWeights":"0.9 0.75 0.5 0.5",
-                                                                                                "constantZ":-9999},
-                                                                            context={"outSR":{"wkid":3857},
-                                                                                            "bandMapping":[{"bandName":"Red",
-                                                                                                            "wavelengthMin":620,
-                                                                                                            "wavelengthMax":700},
-                                                                                                            {"bandName":"Green",
-                                                                                                            "wavelengthMin":510,
-                                                                                                            "wavelengthMax":590},
-                                                                                                            {"bandName":"Blue",
-                                                                                                            "wavelengthMin":450,
-                                                                                                            "wavelengthMax":530},
-                                                                                                            {"bandName":"NearInfrared",
-                                                                                                            "wavelengthMin":775,
-                                                                                                            "wavelengthMax":915}],
-                                                                                            "buildFootprints":True,
-                                                                                            "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                                                    "minValue":1,
-                                                                                                                    "maxValue":None,
-                                                                                                                    "shrinkDistance":50,
-                                                                                                                    "skipOverviews":True,
-                                                                                                                    "updateBoundary":True,
-                                                                                                                    "maintainEdge":False,
-                                                                                                                    "simplification":"None",
-                                                                                                                    "numVertices":20,
-                                                                                                                    "minThinnessRatio":0.05,
-                                                                                                                    "maxSliverSize":20,
-                                                                                                                    "requestSize":2000,
-                                                                                                                    "minRegionSize":100},
-                                                                                                                    "buildOverview":True},
-                                                                            tiles_only=False,
-                                                                            gis = gis
-                                                                            )
-                else:
-                    if layer_type == 'Tiled Imagery Layer' or (layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'false'):
-                        # PHR Tiled Imagery Layer, ORTHO REFLECTANCE
-                        from arcgis.raster.analytics import copy_raster
-                        copy_raster_op = copy_raster(input_raster=infiles, 
-                                                    output_name=layer_name, 
-                                                    raster_type_name=airbus_raster_type,
-                                                    tiles_only=tiles_only_bool,
-                                                    raster_type_params={"productType":"ORTHO REFLECTANCE",
-                                                                        "processingTemplate":"Pansharpen Reflectance",
-                                                                        "pansharpenType":"Gram-Schmidt",
-                                                                        "filter":"SharpenMore",
-                                                                        "pansharpenWeights":"0.9 0.75 0.5 0.5",
-                                                                        "constantZ":-9999},
-                                                    context={"outSR":{"wkid":3857},
-                                                                "resamplingMethod":"BILINEAR",
-                                                                "compression":"LERC 0",
-                                                                "bandMapping":[{"bandName":"Red",
-                                                                                "wavelengthMin":620,
-                                                                                "wavelengthMax":700},
-                                                                            {"bandName":"Green",
-                                                                                "wavelengthMin":510,
-                                                                                "wavelengthMax":590},
-                                                                            {"bandName":"Blue",
-                                                                                "wavelengthMin":450,
-                                                                                "wavelengthMax":530},
-                                                                            {"bandName":"NearInfrared",
-                                                                                "wavelengthMin":775,
-                                                                                "wavelengthMax":915}],
-                                                                "buildFootprints":True,
-                                                                "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                    "minValue":1,
-                                                                                    "maxValue":None,
-                                                                                    "shrinkDistance":50,
-                                                                                    "skipOverviews":True,
-                                                                                    "updateBoundary":True,
-                                                                                    "maintainEdge":False,
-                                                                                    "simplification":"None",
-                                                                                    "numVertices":20,
-                                                                                    "minThinnessRatio":0.05,
-                                                                                    "maxSliverSize":20,
-                                                                                    "requestSize":2000,
-                                                                                    "minRegionSize":100},
-                                                                "defineNodata":True,
-                                                                "noDataArguments":{"noDataValues":[0],
-                                                                                "numberOfBand":99,
-                                                                                "compositeValue":True}},
-                                                    gis = gis)
+        bandMapping = [{"bandName":"Red","wavelengthMin":620,"wavelengthMax":700},
+                    {"bandName":"Green","wavelengthMin":510,"wavelengthMax":590},
+                    {"bandName":"Blue","wavelengthMin":450,"wavelengthMax":530},
+                    {"bandName":"NearInfrared","wavelengthMin":775,"wavelengthMax":915}]
     else:
-        if airbus_raster_type == 'SPOT 6' or airbus_raster_type == 'SPOT 7':
-            if product_proc_level.split()[4] == 'DISPLAY':
-                if layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'true':
-                    # SPOT6/7 Dynamic Imagery Layer, ORTHO DISPLAY
-                    from arcgis.raster.analytics import create_image_collection
-                    AddMessage('Publishing layer: ' + layer_name)
-                    create_image_collection_layer = create_image_collection(image_collection=layer_name, 
-                                                                            input_rasters=infiles,
-                                                                            raster_type_name=airbus_raster_type,
-                                                                            raster_type_params={"productType":"ORTHO DISPLAY",
-                                                                                                "processingTemplate":"Pansharpen Display",
-                                                                                                "pansharpenType":"Gram-Schmidt",
-                                                                                                "filter":"SharpenMore",
-                                                                                                "pansharpenWeights":"0.45 0.55 0 0",
-                                                                                                "constantZ":-9999},
-                                                                            context={"outSR":{"wkid":3857},
-                                                                                            "bandMapping":[{"bandName":"Red",
-                                                                                                            "wavelengthMin":625,
-                                                                                                            "wavelengthMax":695},
-                                                                                                            {"bandName":"Green",
-                                                                                                            "wavelengthMin":530,
-                                                                                                            "wavelengthMax":590},
-                                                                                                            {"bandName":"Blue",
-                                                                                                            "wavelengthMin":450,
-                                                                                                            "wavelengthMax":520},
-                                                                                                            {"bandName":"NearInfrared",
-                                                                                                            "wavelengthMin":760,
-                                                                                                            "wavelengthMax":890}],
-                                                                                            "buildFootprints":True,
-                                                                                            "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                                                    "minValue":1,
-                                                                                                                    "maxValue":None,
-                                                                                                                    "shrinkDistance":50,
-                                                                                                                    "skipOverviews":True,
-                                                                                                                    "updateBoundary":True,
-                                                                                                                    "maintainEdge":False,
-                                                                                                                    "simplification":"None",
-                                                                                                                    "numVertices":20,
-                                                                                                                    "minThinnessRatio":0.05,
-                                                                                                                    "maxSliverSize":20,
-                                                                                                                    "requestSize":2000,
-                                                                                                                    "minRegionSize":100},
-                                                                                                                    "buildOverview":True},
-                                                                            tiles_only=False,
-                                                                            gis = gis
-                                                                            )
-                else:
-                    if layer_type == 'Tiled Imagery Layer' or (layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'false'):
-                        # SPOT6/7 Tiled Imagery Layer, ORTHO DISPLAY
-                        from arcgis.raster.analytics import copy_raster
-                        copy_raster_op = copy_raster(input_raster=infiles, 
-                                                    output_name=layer_name, 
-                                                    raster_type_name=airbus_raster_type,
-                                                    tiles_only=tiles_only_bool,
-                                                    raster_type_params={"productType":"ORTHO DISPLAY",
-                                                                        "processingTemplate":"Pansharpen Display",
-                                                                        "pansharpenType":"Gram-Schmidt",
-                                                                        "filter":"SharpenMore",
-                                                                        "pansharpenWeights":"0.45 0.55 0 0",
-                                                                        "constantZ":-9999},
-                                                    context={"outSR":{"wkid":3857},
-                                                                "resamplingMethod":"BILINEAR",
-                                                                "compression":"LERC 0",
-                                                                "bandMapping":[{"bandName":"Red",
-                                                                                "wavelengthMin":625,
-                                                                                "wavelengthMax":695},
-                                                                                {"bandName":"Green",
-                                                                                "wavelengthMin":530,
-                                                                                "wavelengthMax":590},
-                                                                                {"bandName":"Blue",
-                                                                                "wavelengthMin":450,
-                                                                                "wavelengthMax":520},
-                                                                                {"bandName":"NearInfrared",
-                                                                                "wavelengthMin":760,
-                                                                                "wavelengthMax":890}],
-                                                                "buildFootprints":True,
-                                                                "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                    "minValue":1,
-                                                                                    "maxValue":None,
-                                                                                    "shrinkDistance":50,
-                                                                                    "skipOverviews":True,
-                                                                                    "updateBoundary":True,
-                                                                                    "maintainEdge":False,
-                                                                                    "simplification":"None",
-                                                                                    "numVertices":20,
-                                                                                    "minThinnessRatio":0.05,
-                                                                                    "maxSliverSize":20,
-                                                                                    "requestSize":2000,
-                                                                                    "minRegionSize":100},
-                                                                "defineNodata":True,
-                                                                "noDataArguments":{"noDataValues":[0],
-                                                                                "numberOfBand":99,
-                                                                                "compositeValue":True}},
-                                                    gis = gis)
-        
-            else: 
-                if product_proc_level.split()[4] == 'REFLECTANCE':
-                    if layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'true':
-                        # SPOT6/7 Dynamic Imagery Layer, ORTHO REFLECTANCE
-                        from arcgis.raster.analytics import create_image_collection
-                        AddMessage('Publishing layer: ' + layer_name)
-                        create_image_collection_layer = create_image_collection(image_collection=layer_name, 
-                                                                                input_rasters=infiles,
-                                                                                raster_type_name=airbus_raster_type,
-                                                                                raster_type_params={"productType":"ORTHO REFLECTANCE",
-                                                                                                    "processingTemplate":"Pansharpen Reflectance",
-                                                                                                    "pansharpenType":"Gram-Schmidt",
-                                                                                                    "filter":"SharpenMore",
-                                                                                                    "pansharpenWeights":"0.45 0.55 0 0",
-                                                                                                    "constantZ":-9999},
-                                                                                context={"outSR":{"wkid":3857},
-                                                                                        "bandMapping":[{"bandName":"Red",
-                                                                                                        "wavelengthMin":625,
-                                                                                                        "wavelengthMax":695},
-                                                                                                        {"bandName":"Green",
-                                                                                                        "wavelengthMin":530,
-                                                                                                        "wavelengthMax":590},
-                                                                                                        {"bandName":"Blue",
-                                                                                                        "wavelengthMin":450,
-                                                                                                        "wavelengthMax":520},
-                                                                                                        {"bandName":"NearInfrared",
-                                                                                                        "wavelengthMin":760,
-                                                                                                        "wavelengthMax":890}],
-                                                                                        "buildFootprints":True,
-                                                                                        "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                                                "minValue":1,
-                                                                                                                "maxValue":None,
-                                                                                                                "shrinkDistance":50,
-                                                                                                                "skipOverviews":True,
-                                                                                                                "updateBoundary":True,
-                                                                                                                "maintainEdge":False,
-                                                                                                                "simplification":"None",
-                                                                                                                "numVertices":20,
-                                                                                                                "minThinnessRatio":0.05,
-                                                                                                                "maxSliverSize":20,
-                                                                                                                "requestSize":2000,
-                                                                                                                "minRegionSize":100},
-                                                                                                                "buildOverview":True},
-                                                                                tiles_only=False,
-                                                                                gis = gis
-                                                                                )
-                    else:
-                        if layer_type == 'Tiled Imagery Layer' or (layer_type == 'Dynamic Imagery Layer' and make_image_collection == 'false'):
-                            # SPOT6/7 Tiled Imagery Layer, ORTHO REFLECTANCE
-                            from arcgis.raster.analytics import copy_raster
-                            copy_raster_op = copy_raster(input_raster=infiles, 
-                                                        output_name=layer_name, 
-                                                        raster_type_name=airbus_raster_type,
-                                                        tiles_only=tiles_only_bool,
-                                                        raster_type_params={"productType":"ORTHO REFLECTANCE",
-                                                                            "processingTemplate":"Pansharpen Reflectance",  
-                                                                            "pansharpenType":"Gram-Schmidt",
-                                                                            "filter":"SharpenMore",
-                                                                            "pansharpenWeights":"0.45 0.55 0 0",
-                                                                            "constantZ":-9999},
-                                                        context={"outSR":{"wkid":3857},
-                                                                    "resamplingMethod":"BILINEAR",
-                                                                    "compression":"LERC 0",
-                                                                    "bandMapping":[{"bandName":"Red",
-                                                                                    "wavelengthMin":625,
-                                                                                    "wavelengthMax":695},
-                                                                                    {"bandName":"Green",
-                                                                                    "wavelengthMin":530,
-                                                                                    "wavelengthMax":590},
-                                                                                    {"bandName":"Blue",
-                                                                                    "wavelengthMin":450,
-                                                                                    "wavelengthMax":520},
-                                                                                    {"bandName":"NearInfrared",
-                                                                                    "wavelengthMin":760,
-                                                                                    "wavelengthMax":890}],
-                                                                    "buildFootprints":True,
-                                                                    "footprintsArguments":{"method":"RADIOMETRY",
-                                                                                        "minValue":1,
-                                                                                        "maxValue":None,
-                                                                                        "shrinkDistance":50,
-                                                                                        "skipOverviews":True,
-                                                                                        "updateBoundary":True,
-                                                                                        "maintainEdge":False,
-                                                                                        "simplification":"None",
-                                                                                        "numVertices":20,
-                                                                                        "minThinnessRatio":0.05,
-                                                                                        "maxSliverSize":20,
-                                                                                        "requestSize":2000,
-                                                                                        "minRegionSize":100},
-                                                                    "defineNodata":True,
-                                                                    "noDataArguments":{"noDataValues":[0],
-                                                                                    "numberOfBand":99,
-                                                                                    "compositeValue":True}},
-                                                        gis = gis)
-            
+        if airbus_raster_type == 'SPOT 6' or airbus_raster_type == 'SPOT 7':        
+            bandMapping = [{"bandName":"Red","wavelengthMin":625,"wavelengthMax":695},
+                    {"bandName":"Green","wavelengthMin":530,"wavelengthMax":590},
+                    {"bandName":"Blue","wavelengthMin":450,"wavelengthMax":520},
+                    {"bandName":"NearInfrared","wavelengthMin":760,"wavelengthMax":890}]
+    
+    if product_proc_level.split()[1] == 'BUNDLE' and product_proc_level.split()[4] == 'DISPLAY' and pansharpen_from_bundle == 'true':
+        processingTemplate = 'Pansharpen Display'
+        productType = 'ORTHO DISPLAY'
+    elif product_proc_level.split()[1] == 'BUNDLE' and product_proc_level.split()[4] == 'DISPLAY' and pansharpen_from_bundle == 'false':
+        processingTemplate = 'Multispectral Display'
+        productType = 'ORTHO DISPLAY'
+    elif product_proc_level.split()[1] == 'BUNDLE' and product_proc_level.split()[4] == 'REFLECTANCE' and pansharpen_from_bundle == 'true':
+        processingTemplate = 'Pansharpen Reflectance'
+        productType = 'ORTHO REFLECTANCE'
+    elif product_proc_level.split()[1] == 'BUNDLE' and product_proc_level.split()[4] == 'REFLECTANCE' and pansharpen_from_bundle == 'false':
+        processingTemplate = 'Multispectral Reflectance'
+        productType = 'ORTHO REFLECTANCE'
+    elif product_proc_level.split()[1] == 'PANSHARPENED' and product_proc_level.split()[4] == 'REFLECTANCE':
+        processingTemplate = 'Multispectral Reflectance'
+        productType = 'ORTHO REFLECTANCE'
+    elif product_proc_level.split()[1] == 'PANSHARPENED' and product_proc_level.split()[4] == 'DISPLAY':
+        processingTemplate = 'Multispectral Display'
+        productType = 'ORTHO DISPLAY'
+    
+    dyn_raster_type_params = {'productType':productType,'processingTemplate':processingTemplate}
+    if 'Pansharpen' in processingTemplate:
+        dyn_raster_type_params.update({'pansharpenType':'Gram-Schmidt','filter':'SharpenMore','pansharpenWeights':'0.9 0.75 0.5 0.5'})
+
+    dyn_context = {'outSR':{'wkid':3857},'bandMapping':bandMapping,'resamplingMethod':'BILINEAR','compression':'LERC 0',
+           'buildFootprints':True,'footprintsArguments':{'method':'RADIOMETRY',
+                                                         'minValue':1,
+                                                         'maxValue':'',
+                                                         'shrinkDistance':50,
+                                                         'skipOverviews':True,
+                                                         'updateBoundary':True,
+                                                         'maintainEdge':False,
+                                                         'simplification':None,
+                                                         'numVertices':20,
+                                                         'minThinnessRatio':0.05,
+                                                         'maxSliverSize':20,
+                                                         'requestSize':2000,
+                                                         'minRegionSize':100},
+                                                         'buildOverview':True}
+
+    AddMessage('dyn_raster_type_params: ' + str(dyn_raster_type_params))
+    AddMessage('dyn_context: ' + str(dyn_context))
+    AddMessage('airbus_raster_type: ' + airbus_raster_type)
+    AddMessage('bandMapping: ' + str(bandMapping))
+    AddMessage('processingTemplate: ' + processingTemplate)
+    AddMessage('productType: ' + productType)
+    AddMessage('Publishing layer: ' + layer_name)
+
+    from arcgis.gis import GIS
+    gis = GIS('Pro', verify_cert=False)
+    
+    if make_image_collection == 'true':
+        from arcgis.raster.analytics import create_image_collection
+        create_image_collection_layer = create_image_collection(image_collection = layer_name,
+                                                                input_rasters = infiles,
+                                                                raster_type_name = airbus_raster_type,
+                                                                raster_type_params = dyn_raster_type_params,
+                                                                context = dyn_context,
+                                                                tiles_only = tiles_only_bool,
+                                                                gis = gis)
+    else:
+        from arcgis.raster.analytics import copy_raster
+        copy_raster_op = copy_raster(input_raster = infiles,
+                                    output_name = layer_name,
+                                    raster_type_name = airbus_raster_type,
+                                    raster_type_params = dyn_raster_type_params,
+                                    context = dyn_context,
+                                    tiles_only = tiles_only_bool,
+                                    gis = gis)
+
     AddMessage('Published {}: {}'.format(layer_type, layer_name))
-
-
 
 if __name__ == '__main__':
     AddMessage('Started processing...')
@@ -604,80 +310,115 @@ if __name__ == '__main__':
             i += 1
 
     if publish == 'true':
-        if all_products == 'false' or all_products == '':
-            if product_proc_level.split()[0] == 'PHR_1A' or product_proc_level.split()[0] == 'PHR_1B':
-                airbus_raster_type = 'Pleiades-1'
-            else:
-                if product_proc_level.split()[0] == 'SPOT_6':
-                    airbus_raster_type = 'SPOT 6'
-                if product_proc_level.split()[0] == 'SPOT_7':
-                    airbus_raster_type = 'SPOT 7'          
-            AddMessage('raster_type_name: ' + airbus_raster_type)
-            
-            archive_base_name = path.splitext(product_resource_id)[0]
-            archive_local_path = path.join(download_dir, archive_base_name)
-            infiles = []
-            infiles.append(archive_local_path)
-            AddMessage('infiles list: ' + str(infiles))
-            AddMessage('make_image_collection: ' + make_image_collection)
-            AddMessage('pansharpen_from_bundle: ' + pansharpen_from_bundle)
-            if layer_type == 'Dynamic Imagery Layer':
-                tiles_only_bool = False
-            else:
-                tiles_only_bool = True
-            AddMessage('tiles_only_bool: ' + str(tiles_only_bool))
+        if product_proc_level.split()[0] == 'PHR_1A' or product_proc_level.split()[0] == 'PHR_1B':
+            airbus_raster_type = 'Pleiades-1'
+        else:
+            if product_proc_level.split()[0] == 'SPOT_6':
+                airbus_raster_type = 'SPOT 6'
+            if product_proc_level.split()[0] == 'SPOT_7':
+                airbus_raster_type = 'SPOT 7'          
+        AddMessage('raster_type_name: ' + airbus_raster_type)
+        archive_base_name = path.splitext(product_resource_id)[0]
+        archive_local_path = path.join(download_dir, archive_base_name)
+        infiles = []
+        infiles.append(archive_local_path)
+        AddMessage('infiles list: ' + str(infiles))
+        AddMessage('make_image_collection: ' + make_image_collection)
+        AddMessage('pansharpen_from_bundle: ' + pansharpen_from_bundle)
+        if layer_type == 'Dynamic Imagery Layer':
+            tiles_only_bool = False
+        else:
+            tiles_only_bool = True
+        AddMessage('tiles_only_bool: ' + str(tiles_only_bool))
+
+        if all_products == 'false' or all_products == '':            
             publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
         else:
             AddMessage('Publishing all products in layer groups...')
-            # Print out the publishing groups that have data in them
-            AddMessage('The following product groups were identified for layer publishing:')
+            # Manage publishing groups that have paths in them
             if len(phr_bundle_ortho_disp) > 0:
                 AddMessage('phr_bundle_ortho_disp contains the following paths:')
                 for item in phr_bundle_ortho_disp:
                     AddMessage(item)
+                #infiles = phr_bundle_ortho_disp
+                #layer_name = layer_name + '_phr_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_bundle_ortho_refl) > 0:
                 AddMessage('phr_bundle_ortho_refl contains the following paths:')
                 for item in phr_bundle_ortho_refl:
                     AddMessage(item)
+                #infiles = phr_bundle_ortho_refl
+                #layer_name = layer_name + '_phr_bundle_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_ps_ortho_disp) > 0:
                 AddMessage('phr_ps_ortho_disp contains the following paths:')
                 for item in phr_ps_ortho_disp:
                     AddMessage(item)
+                #infiles = phr_ps_ortho_disp
+                #layer_name = layer_name + '_phr_ps_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_ps_ortho_refl) > 0:
                 AddMessage('phr_ps_ortho_refl contains the following paths:')
                 for item in phr_ps_ortho_refl:
                     AddMessage(item)
+                #infiles = phr_ps_ortho_refl
+                #layer_name = layer_name + '_phr_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_bundle_ortho_disp) > 0:
                 AddMessage('spot6_bundle_ortho_disp contains the following paths:')
                 for item in spot6_bundle_ortho_disp:
                     AddMessage(item)
+                #infiles = spot6_bundle_ortho_disp
+                #layer_name = layer_name + '_spot6_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_bundle_ortho_refl) > 0:
                 AddMessage('spot6_bundle_ortho_refl contains the following paths:')
                 for item in spot6_bundle_ortho_refl:
                     AddMessage(item)
+                #infiles = spot6_bundle_ortho_refl
+                #layer_name = layer_name + '_spot6_bundle_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_ps_ortho_disp) > 0:
                 AddMessage('spot6_ps_ortho_disp contains the following paths:')
                 for item in spot6_ps_ortho_disp:
                     AddMessage(item)
+                #infiles = spot6_ps_ortho_disp
+                #layer_name = layer_name + '_spot6_ps_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_ps_ortho_refl) > 0:
                 AddMessage('spot6_ps_ortho_refl contains the following paths:')
                 for item in spot6_ps_ortho_refl:
                     AddMessage(item)
+                #infiles = spot6_ps_ortho_refl
+                #layer_name = layer_name + '_spot6_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_bundle_ortho_disp) > 0:
                 AddMessage('spot7_bundle_ortho_disp contains the following paths:')
                 for item in spot7_bundle_ortho_disp:
                     AddMessage(item)
+                #infiles = spot7_bundle_ortho_disp
+                #layer_name = layer_name + '_spot7_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_bundle_ortho_refl) > 0:
                 AddMessage('spot7_bundle_ortho_refl contains the following paths:')
                 for item in spot7_bundle_ortho_refl:
                     AddMessage(item)
+                #infiles = spot7_bundle_ortho_refl
+                #layer_name = layer_name + '_spot7_bundle_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_ps_ortho_disp) > 0:
                 AddMessage('spot7_ps_ortho_disp contains the following paths:')
                 for item in spot7_ps_ortho_disp:
                     AddMessage(item)
+                #infiles = spot7_ps_ortho_disp
+                #layer_name = layer_name + '_spot7_ps_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_ps_ortho_refl) > 0:
                 AddMessage('spot7_ps_ortho_refl contains the following paths:')
                 for item in spot7_ps_ortho_refl:
                     AddMessage(item)
+                #infiles = spot7_ps_ortho_refl
+                #layer_name = layer_name + '_spot7_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             
 AddMessage('Finished processing.')

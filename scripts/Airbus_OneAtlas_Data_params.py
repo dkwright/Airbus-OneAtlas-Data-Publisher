@@ -196,6 +196,7 @@ class ToolValidator:
 
         if self.params[1].value == True:
             self.params[0].enabled = False
+         
             # For now, publishing is only available for a single product selection
             # self.params[4].value = False
             # self.params[5].enabled = False
@@ -204,27 +205,48 @@ class ToolValidator:
             self.params[0].enabled = True
 
         # Get the geometry for selected product
-        if self.params[0].value is not None and 'Check your API key' not in self.params[0].filter.list[0]:
-            selected_product = self.params[0].value.split('=',1)[1]
-            logging.info('Selected product:' + selected_product)
-            geojsonpoly = str(get_product_geometry(selected_product))
-            # Clear out any previous features
+        if self.params[1].value == False:
+            if self.params[0].value is not None and 'Check your API key' not in self.params[0].filter.list[0]:
+                selected_product = self.params[0].value.split('=',1)[1]
+                logging.info('Selected product:' + selected_product)
+                geojsonpoly = str(get_product_geometry(selected_product))
+                # Delete any existing feature
+                if int(arcpy.GetCount_management(out_fc)[0]) > 0:
+                    arcpy.DeleteFeatures_management(out_fc)
+                # Insert the geometry and ID from selected product    
+                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
+                newPoly = arcpy.AsShape(geojsonpoly)
+                icur.insertRow([newPoly, self.params[0].value.split(',')[0]])
+                del icur
+                arcpy.RecalculateFeatureClassExtent_management(out_fc)
+                desc = arcpy.Describe(out_fc)
+                logging.info('Airbus_Results extent: ' + str(desc.extent))
+                #extent_offset_feature = join('memory', 'offset_feature')
+                #extent_offset(out_fc, 0.00001, extent_offset_feature)
+                #desc = arcpy.Describe(extent_offset_feature)      
+                if len(aprx.listMaps()) > 0: 
+                    aprx.activeView.camera.setExtent(desc.extent)
+        elif self.params[1].value == True:
+            # Delete any existing features
             if int(arcpy.GetCount_management(out_fc)[0]) > 0:
                 arcpy.DeleteFeatures_management(out_fc)
-            # Insert the geometry and ID from selected product    
-            icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
-            newPoly = arcpy.AsShape(geojsonpoly)
-            icur.insertRow([newPoly, self.params[0].value.split(',')[0]])
-            del icur
+            # iterate over all products
+            logging.info('gemoetry for all products')
+            for item in self.params[0].filter.list:
+                product = item.split('=',1)[1]                   
+                logging.info('product: ' + product)
+                geojsonpoly = str(get_product_geometry(product))
+                # Insert the geometry and ID from selected product    
+                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
+                newPoly = arcpy.AsShape(geojsonpoly)
+                icur.insertRow([newPoly, item.split(',')[0]])
+                del icur
             arcpy.RecalculateFeatureClassExtent_management(out_fc)
             desc = arcpy.Describe(out_fc)
-            logging.info('Airbus_Results extent: ' + str(desc.extent))
-            #extent_offset_feature = join('memory', 'offset_feature')
-            #extent_offset(out_fc, 0.00001, extent_offset_feature)
-            #desc = arcpy.Describe(extent_offset_feature)      
+            logging.info('Airbus_Results extent: ' + str(desc.extent))    
             if len(aprx.listMaps()) > 0: 
                 aprx.activeView.camera.setExtent(desc.extent)
-        
+
         # update the settings json file with user's specified download directory         
         a_file = open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), 'r')
         json_object = load(a_file)
