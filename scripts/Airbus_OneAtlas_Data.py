@@ -397,7 +397,7 @@ if __name__ == '__main__':
                     AddMessage(item)
                 infiles = spot6_ps_ortho_disp
                 group_layer_name = layer_name + '_spot6_ps_ortho_disp_group'
-                publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_ps_ortho_refl) > 0:
                 airbus_raster_type = 'SPOT 6'
                 product_proc_level = 'SPOT_6 PANSHARPENED PMS ORTHO REFLECTANCE'
@@ -424,7 +424,7 @@ if __name__ == '__main__':
                     AddMessage(item)
                 infiles = spot7_bundle_ortho_refl
                 group_layer_name = layer_name + '_spot7_bundle_ortho_refl_group'
-                publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_ps_ortho_disp) > 0:
                 airbus_raster_type = 'SPOT 7'
                 product_proc_level = 'SPOT_7 PANSHARPENED PMS ORTHO DISPLAY'
