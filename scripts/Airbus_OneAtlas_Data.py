@@ -310,115 +310,138 @@ if __name__ == '__main__':
             i += 1
 
     if publish == 'true':
-        if product_proc_level.split()[0] == 'PHR_1A' or product_proc_level.split()[0] == 'PHR_1B':
-            airbus_raster_type = 'Pleiades-1'
-        else:
-            if product_proc_level.split()[0] == 'SPOT_6':
-                airbus_raster_type = 'SPOT 6'
-            if product_proc_level.split()[0] == 'SPOT_7':
-                airbus_raster_type = 'SPOT 7'          
-        AddMessage('raster_type_name: ' + airbus_raster_type)
-        archive_base_name = path.splitext(product_resource_id)[0]
-        archive_local_path = path.join(download_dir, archive_base_name)
-        infiles = []
-        infiles.append(archive_local_path)
-        AddMessage('infiles list: ' + str(infiles))
-        AddMessage('make_image_collection: ' + make_image_collection)
-        AddMessage('pansharpen_from_bundle: ' + pansharpen_from_bundle)
-        if layer_type == 'Dynamic Imagery Layer':
-            tiles_only_bool = False
-        else:
-            tiles_only_bool = True
-        AddMessage('tiles_only_bool: ' + str(tiles_only_bool))
+        if all_products == 'false' or all_products == '': 
+            if product_proc_level.split()[0] == 'PHR_1A' or product_proc_level.split()[0] == 'PHR_1B':
+                airbus_raster_type = 'Pleiades-1'
+            else:
+                if product_proc_level.split()[0] == 'SPOT_6':
+                    airbus_raster_type = 'SPOT 6'
+                if product_proc_level.split()[0] == 'SPOT_7':
+                    airbus_raster_type = 'SPOT 7' 
+            archive_base_name = path.splitext(product_resource_id)[0]
+            archive_local_path = path.join(download_dir, archive_base_name)
+            infiles = []
+            infiles.append(archive_local_path)
+
+        #if layer_type == 'Dynamic Imagery Layer':
+        #    tiles_only_bool = False
+        #else:
+        #    tiles_only_bool = True
+        #AddMessage('tiles_only_bool: ' + str(tiles_only_bool))
 
         if all_products == 'false' or all_products == '':            
             publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
         else:
-            AddMessage('Publishing all products in layer groups...')
+            #AddMessage('Publishing all products in layer groups...')
+            AddMessage('Reporting all layer groups that have content...')
             # Manage publishing groups that have paths in them
             if len(phr_bundle_ortho_disp) > 0:
+                airbus_raster_type = 'Pleiades-1'
+                product_proc_level = 'PHR_1 BUNDLE P ORTHO DISPLAY'
                 AddMessage('phr_bundle_ortho_disp contains the following paths:')
                 for item in phr_bundle_ortho_disp:
                     AddMessage(item)
-                #infiles = phr_bundle_ortho_disp
-                #layer_name = layer_name + '_phr_bundle_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = phr_bundle_ortho_disp
+                group_layer_name = layer_name + '_phr_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_bundle_ortho_refl) > 0:
+                airbus_raster_type = 'Pleiades-1'
+                product_proc_level = 'PHR_1 BUNDLE P ORTHO REFLECTANCE'
                 AddMessage('phr_bundle_ortho_refl contains the following paths:')
                 for item in phr_bundle_ortho_refl:
                     AddMessage(item)
-                #infiles = phr_bundle_ortho_refl
-                #layer_name = layer_name + '_phr_bundle_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = phr_bundle_ortho_refl
+                group_layer_name = layer_name + '_phr_bundle_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_ps_ortho_disp) > 0:
+                airbus_raster_type = 'Pleiades-1'
+                product_proc_level = 'PHR_1 PANSHARPENED PMS ORTHO DISPLAY'
                 AddMessage('phr_ps_ortho_disp contains the following paths:')
                 for item in phr_ps_ortho_disp:
                     AddMessage(item)
-                #infiles = phr_ps_ortho_disp
-                #layer_name = layer_name + '_phr_ps_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = phr_ps_ortho_disp
+                group_layer_name = layer_name + '_phr_ps_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(phr_ps_ortho_refl) > 0:
+                airbus_raster_type = 'Pleiades-1'
+                product_proc_level = 'PHR_1 PANSHARPENED PMS ORTHO REFLECTANCE'
                 AddMessage('phr_ps_ortho_refl contains the following paths:')
                 for item in phr_ps_ortho_refl:
                     AddMessage(item)
-                #infiles = phr_ps_ortho_refl
-                #layer_name = layer_name + '_phr_ps_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = phr_ps_ortho_refl
+                group_layer_name = layer_name + '_phr_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_bundle_ortho_disp) > 0:
+                airbus_raster_type = 'SPOT 6'
+                product_proc_level = 'SPOT_6 BUNDLE P ORTHO DISPLAY'
                 AddMessage('spot6_bundle_ortho_disp contains the following paths:')
                 for item in spot6_bundle_ortho_disp:
                     AddMessage(item)
-                #infiles = spot6_bundle_ortho_disp
-                #layer_name = layer_name + '_spot6_bundle_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot6_bundle_ortho_disp
+                group_layer_name = layer_name + '_spot6_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_bundle_ortho_refl) > 0:
+                airbus_raster_type = 'SPOT 6'
+                product_proc_level = 'SPOT_6 BUNDLE P ORTHO REFLECTANCE'
                 AddMessage('spot6_bundle_ortho_refl contains the following paths:')
                 for item in spot6_bundle_ortho_refl:
                     AddMessage(item)
-                #infiles = spot6_bundle_ortho_refl
-                #layer_name = layer_name + '_spot6_bundle_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot6_bundle_ortho_refl
+                group_layer_name = layer_name + '_spot6_bundle_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_ps_ortho_disp) > 0:
+                airbus_raster_type = 'SPOT 6'
+                product_proc_level = 'SPOT_6 PANSHARPENED PMS ORTHO DISPLAY'
                 AddMessage('spot6_ps_ortho_disp contains the following paths:')
                 for item in spot6_ps_ortho_disp:
                     AddMessage(item)
-                #infiles = spot6_ps_ortho_disp
-                #layer_name = layer_name + '_spot6_ps_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot6_ps_ortho_disp
+                group_layer_name = layer_name + '_spot6_ps_ortho_disp_group'
+                publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot6_ps_ortho_refl) > 0:
+                airbus_raster_type = 'SPOT 6'
+                product_proc_level = 'SPOT_6 PANSHARPENED PMS ORTHO REFLECTANCE'
                 AddMessage('spot6_ps_ortho_refl contains the following paths:')
                 for item in spot6_ps_ortho_refl:
                     AddMessage(item)
-                #infiles = spot6_ps_ortho_refl
-                #layer_name = layer_name + '_spot6_ps_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot6_ps_ortho_refl
+                group_layer_name = layer_name + '_spot6_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_bundle_ortho_disp) > 0:
+                airbus_raster_type = 'SPOT 7'
+                product_proc_level = 'SPOT_7 BUNDLE P ORTHO DISPLAY'
                 AddMessage('spot7_bundle_ortho_disp contains the following paths:')
                 for item in spot7_bundle_ortho_disp:
                     AddMessage(item)
-                #infiles = spot7_bundle_ortho_disp
-                #layer_name = layer_name + '_spot7_bundle_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot7_bundle_ortho_disp
+                group_layer_name = layer_name + '_spot7_bundle_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_bundle_ortho_refl) > 0:
+                airbus_raster_type = 'SPOT 7'
+                product_proc_level = 'SPOT_7 BUNDLE P ORTHO REFLECTANCE'
                 AddMessage('spot7_bundle_ortho_refl contains the following paths:')
                 for item in spot7_bundle_ortho_refl:
                     AddMessage(item)
-                #infiles = spot7_bundle_ortho_refl
-                #layer_name = layer_name + '_spot7_bundle_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot7_bundle_ortho_refl
+                group_layer_name = layer_name + '_spot7_bundle_ortho_refl_group'
+                publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_ps_ortho_disp) > 0:
+                airbus_raster_type = 'SPOT 7'
+                product_proc_level = 'SPOT_7 PANSHARPENED PMS ORTHO DISPLAY'
                 AddMessage('spot7_ps_ortho_disp contains the following paths:')
                 for item in spot7_ps_ortho_disp:
                     AddMessage(item)
-                #infiles = spot7_ps_ortho_disp
-                #layer_name = layer_name + '_spot7_ps_ortho_disp_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot7_ps_ortho_disp
+                group_layer_name = layer_name + '_spot7_ps_ortho_disp_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             if len(spot7_ps_ortho_refl) > 0:
+                airbus_raster_type = 'SPOT 7'
+                product_proc_level = 'SPOT_7 PANSHARPENED PMS ORTHO REFLECTANCE'
                 AddMessage('spot7_ps_ortho_refl contains the following paths:')
                 for item in spot7_ps_ortho_refl:
                     AddMessage(item)
-                #infiles = spot7_ps_ortho_refl
-                #layer_name = layer_name + '_spot7_ps_ortho_refl_group'
-                #publish_layer(infiles, airbus_raster_type, product_proc_level, layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
+                infiles = spot7_ps_ortho_refl
+                group_layer_name = layer_name + '_spot7_ps_ortho_refl_group'
+                #publish_layer(infiles, airbus_raster_type, product_proc_level, group_layer_name, layer_type, make_image_collection, pansharpen_from_bundle)
             
 AddMessage('Finished processing.')

@@ -62,17 +62,13 @@ try:
         l.symbology = sym
 except:
     logging.info('There is no Map in this ArcGIS Project. Please add one.')
-def get_products_in_workspace():
-    user_api_key_from_json = get_api_key()
-    if user_api_key_from_json == 'your OneAtlas Data API key goes here' or ' ' in user_api_key_from_json:
-        return ['Check your API key in: " ' + path.abspath(path.join(path.dirname(__file__), 'settings.json')) + ' and run this tool again.']
-    auth_header = 'Bearer ' + get_token(user_api_key_from_json)
+def get_products_in_workspace(token):
     # Get user's One Atlas Data subscription details
-    workspace_id = get_subscription_info(auth_header)
+    workspace_id = get_subscription_info(token)
     # Query the workspace for delivered products
     url = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
     querystring = {"itemsPerPage":100, "startPage":1, "sortBy": "-publicationDate", "workspace": workspace_id}
-    headers = {'Cache-Control': 'no-cache','Authorization': auth_header, 'Content-Type': 'application/json'}
+    headers = {'Cache-Control': 'no-cache','Authorization': token, 'Content-Type': 'application/json'}
     response = requests.request('GET', url, headers=headers, params=querystring)
     products = []
     for feature in loads(response.text)['features']:
@@ -89,7 +85,7 @@ def get_api_key():
         data = settings_file.read()
     obj = loads(data)
     key = str(obj['apikey'])
-    settings_file.close()
+    settings_file.close()        
     return key
 
 def get_token(api_key):
@@ -101,23 +97,20 @@ def get_token(api_key):
     # TODO try except on HTTP403 (stale apikey)
     return loads(response.text)['access_token']
 
-def get_subscription_info(auth_header):
+def get_subscription_info(token):
     url = 'https://data.api.oneatlas.airbus.com/api/v1/me'
     payload={}
-    headers = {'Authorization': auth_header}
+    headers = {'Authorization': token}
     my_info = requests.request('GET', url, headers=headers, data=payload)
     workspace_id = loads(my_info.text)['contract']['workspaceId']
     return workspace_id
 
-def get_product_geometry(selected_product):
-    user_api_key_from_json = get_api_key()
-    auth_header = 'Bearer ' + get_token(user_api_key_from_json)
-    logging.info('auth_header:' + auth_header)
-    workspace_id = get_subscription_info(auth_header)
+def get_product_geometry(selected_product, token):
+    workspace_id = get_subscription_info(token)
     # search the workspace
     url = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
     querystring = {"workspaceid":workspace_id, "id":selected_product}
-    headers = {'Cache-Control': 'no-cache','Authorization': auth_header, 'Content-Type': 'application/json'}
+    headers = {'Cache-Control': 'no-cache','Authorization': token, 'Content-Type': 'application/json'}
     response = requests.request('GET', url, headers=headers, params=querystring)
     for feature in loads(response.text)['features']:
         geometry = feature['geometry']
@@ -142,7 +135,6 @@ def get_dl_dir():
         data = settings_file.read()
     obj = loads(data)
     dl_dir = str(obj['download_dir'])
-    logging.info('returning: ' + dl_dir)
     settings_file.close()
     return dl_dir
 
@@ -159,7 +151,14 @@ class ToolValidator:
         self.params[5].enabled = False
         self.params[6].enabled = False
         self.params[8].enabled = False
-        self.params[0].filter.list = get_products_in_workspace()
+        self.params[9].enabled = False
+        self.params[10].enabled = False
+        oad_api_key = get_api_key()
+        if oad_api_key == 'your OneAtlas Data API key goes here' or ' ' in oad_api_key or oad_api_key == None:
+            self.params[0].filter.list = ['Check your API key in: " ' + path.abspath(path.join(path.dirname(__file__), 'settings.json')) + ' and run this tool again.']
+        else:
+            self.params[9].value = 'Bearer ' + get_token(oad_api_key)
+            self.params[0].filter.list = get_products_in_workspace(self.params[9].value)
         self.params[5].value = time.strftime("%Y%m%d-%H%M%S")
         self.params[2].value = get_dl_dir()
         return
@@ -177,9 +176,11 @@ class ToolValidator:
             if self.params[6].value == 'Dynamic Imagery Layer':
                 self.params[7].enabled = True
             else:
-                if self.params[6].value != 'Dynamic Imagery Layer':
+                if self.params[6].value == 'Tiled Imagery Layer':
                     self.params[7].enabled = False
+
             if self.params[0].value:
+                logging.debug('updateParameters: self.params[0].value is set to: ' + self.params[0].value)
                 if self.params[0].value.split(',')[2].replace(' ','') == 'bundle':
                     self.params[8].enabled = True
                 else:
@@ -196,6 +197,7 @@ class ToolValidator:
 
         if self.params[1].value == True:
             self.params[0].enabled = False
+            self.params[0].value = self.params[0].filter.list[0]
          
             # For now, publishing is only available for a single product selection
             # self.params[4].value = False
@@ -205,11 +207,11 @@ class ToolValidator:
             self.params[0].enabled = True
 
         # Get the geometry for selected product
-        if self.params[1].value == False:
+        if self.params[1].value == False or self.params[1].value == None:
             if self.params[0].value is not None and 'Check your API key' not in self.params[0].filter.list[0]:
                 selected_product = self.params[0].value.split('=',1)[1]
                 logging.info('Selected product:' + selected_product)
-                geojsonpoly = str(get_product_geometry(selected_product))
+                geojsonpoly = str(get_product_geometry(selected_product, self.params[9].value))
                 # Delete any existing feature
                 if int(arcpy.GetCount_management(out_fc)[0]) > 0:
                     arcpy.DeleteFeatures_management(out_fc)
@@ -218,15 +220,10 @@ class ToolValidator:
                 newPoly = arcpy.AsShape(geojsonpoly)
                 icur.insertRow([newPoly, self.params[0].value.split(',')[0]])
                 del icur
+                self.params[10].value = 'false'
                 arcpy.RecalculateFeatureClassExtent_management(out_fc)
-                desc = arcpy.Describe(out_fc)
-                logging.info('Airbus_Results extent: ' + str(desc.extent))
-                #extent_offset_feature = join('memory', 'offset_feature')
-                #extent_offset(out_fc, 0.00001, extent_offset_feature)
-                #desc = arcpy.Describe(extent_offset_feature)      
-                if len(aprx.listMaps()) > 0: 
-                    aprx.activeView.camera.setExtent(desc.extent)
-        elif self.params[1].value == True:
+
+        elif self.params[1].value == True and 'Check your API key' not in self.params[0].filter.list[0] and self.params[10].value == 'false':
             # Delete any existing features
             if int(arcpy.GetCount_management(out_fc)[0]) > 0:
                 arcpy.DeleteFeatures_management(out_fc)
@@ -235,17 +232,26 @@ class ToolValidator:
             for item in self.params[0].filter.list:
                 product = item.split('=',1)[1]                   
                 logging.info('product: ' + product)
-                geojsonpoly = str(get_product_geometry(product))
+                geojsonpoly = str(get_product_geometry(product, self.params[9].value))
                 # Insert the geometry and ID from selected product    
                 icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
                 newPoly = arcpy.AsShape(geojsonpoly)
                 icur.insertRow([newPoly, item.split(',')[0]])
                 del icur
-            arcpy.RecalculateFeatureClassExtent_management(out_fc)
-            desc = arcpy.Describe(out_fc)
-            logging.info('Airbus_Results extent: ' + str(desc.extent))    
-            if len(aprx.listMaps()) > 0: 
-                aprx.activeView.camera.setExtent(desc.extent)
+            self.params[10].value = 'true'
+
+        #logging.debug('updateParameters - aprx: ' + str(aprx))
+        #logging.debug('updateParameters - aprx.activeView: ' + str(aprx.activeView))
+        #logging.debug('updateParameters - out_fc: ' + str(out_fc))
+
+        arcpy.RecalculateFeatureClassExtent_management(out_fc)
+        desc = arcpy.Describe(out_fc)
+        logging.info('Airbus_Results extent: ' + str(desc.extent))
+        #extent_offset_feature = join('memory', 'offset_feature')
+        #extent_offset(out_fc, 0.00001, extent_offset_feature)
+        #desc = arcpy.Describe(extent_offset_feature)      
+        if len(aprx.listMaps()) > 0:
+            aprx.activeView.camera.setExtent(desc.extent)
 
         # update the settings json file with user's specified download directory         
         a_file = open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), 'r')
@@ -255,6 +261,15 @@ class ToolValidator:
         dump(json_object, a_file)
         a_file.close()
         
+        # write parameter values to logfile
+        idx = 0
+        while idx < 11:
+            try:
+                logging.debug('updateParameters: ' + str(idx) + ' ' + str(self.params[idx].value))
+                idx += 1
+            except Exception as ex:
+                logging.debug('updateParameters: Exception: ' + str(idx) + ' ' + ex)
+
         return
 
     def updateMessages(self):
@@ -262,19 +277,14 @@ class ToolValidator:
         # This gets called after standard validation.
         if not self.params[0].value:
             self.params[0].setErrorMessage('No product selection has been made.')
-
         if not self.params[2].value:
             self.params[2].setErrorMessage('Please specify a Download Directory that exists on your machine.')
-        
         if not self.params[5].value:
             self.params[5].setErrorMessage('No Layer Name has been specified for publishing.')
-        
         if not self.params[6].value:
             self.params[6].setErrorMessage('No Layer Type has been specified for publishing.')
-
         if self.params[7].value == True:
             self.params[7].setWarningMessage('For Dynamic Image Collection, uploaded images will not be converted to Cloud Raster Format.')
-        
         if 'Check your API key' in self.params[0].filter.list[0]: 
             self.params[0].setErrorMessage('Check your API key in: " ' + path.abspath(path.join(path.dirname(__file__), 'settings.json')) + ' and then run this tool again.')
         return
