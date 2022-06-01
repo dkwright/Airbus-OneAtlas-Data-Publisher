@@ -13,6 +13,7 @@ from os import mkdir
 from arcpy import mp
 import logging
 import time
+import traceback
 
 timestr = time.strftime("%Y%m%d-%H%M%S")
 logs_dir = path.abspath(path.join(path.dirname(__file__), '..', 'logs'))
@@ -28,56 +29,59 @@ logging.basicConfig(
 # Get the current project
 aprx = arcpy.mp.ArcGISProject("CURRENT")
 defaultGDB = aprx.defaultGeodatabase
+# Manage the results layer 
 fc_name = 'Airbus_Results'
 out_fc = join(defaultGDB, fc_name)
-#out_fc = join('memory', fc_name)
 
 if not arcpy.Exists(defaultGDB):
-    arcpy.CreateFileGDB_management(path.abspath(defaultGDB), path.basename(defaultGDB))
+    arcpy.CreateFileGDB_management(path.split(defaultGDB)[0], path.basename(defaultGDB))
 if not arcpy.Exists(out_fc):
     sr = arcpy.SpatialReference(4326)
     arcpy.CreateFeatureclass_management(defaultGDB, fc_name, "POLYGON", spatial_reference = sr)
     arcpy.management.AddFields(
-        out_fc,[['id', 'TEXT', 'ID', 60, '', ''],
+        out_fc,[['acquisitiondate', 'TEXT', 'acquisitiondate', 60, '', ''],
         ])
-if not arcpy.Exists(join(aprx.homeFolder, 'Airbus_Results.lyrx')):
-    arcpy.MakeFeatureLayer_management(out_fc, 'Airbus_Results')
-    arcpy.management.SaveToLayerFile('Airbus_Results', 'Airbus_Results.lyrx', 'RELATIVE')
 
 # Check for the active Map
 try:
     m = aprx.listMaps(aprx.activeMap.name)[0]
-    # Check for the layer name in the Map
+    # Check for the results layer and load it if necessary
     layer_list = []
     for lyr in m.listLayers():
         layer_list.append(lyr.name)
     if not 'Airbus_Results' in layer_list: 
-        lf = arcpy.mp.LayerFile(path.join(path.split(defaultGDB)[0], 'Airbus_Results.lyrx'))
-        m.addLayer(lf)
-        # Set layer symbology
+        m.addDataFromPath(out_fc)
+        # Set results layer symbology
         l = m.listLayers('Airbus_Results')[0]
         sym = l.symbology
         sym.renderer.symbol.color = {'RGB' : [0, 0, 0, 0]}
         sym.renderer.symbol.outlineColor = {'RGB' : [255, 0, 0, 100]}
         l.symbology = sym
 except:
-    logging.info('There is no Map in this ArcGIS Project. Please add one.')
+    tb = traceback.format_exc()
+    logging.info('Exception while managing the Airbus_Results layer - traceback: ' + tb)
+
 def get_products_in_workspace(token):
     # Get user's One Atlas Data subscription details
     workspace_id = get_subscription_info(token)
-    # Query the workspace for delivered products
+    # Query the MyData workspace for delivered products
     url = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
     querystring = {"itemsPerPage":100, "startPage":1, "sortBy": "-publicationDate", "workspace": workspace_id}
     headers = {'Cache-Control': 'no-cache','Authorization': token, 'Content-Type': 'application/json'}
     response = requests.request('GET', url, headers=headers, params=querystring)
     products = []
     for feature in loads(response.text)['features']:
-        if ('properties' in feature) and ('sourceIdentifier' in feature['properties']) and ('processingLevel' in feature['properties']) and ('productType' in feature['properties'])  and ('id' in feature['properties']) and ('download' in feature['_links']) and ('resourceId' in feature['_links']['download']) and ('resourceId' in feature['_links']['download']):
-            products.append(feature['properties']['sourceIdentifier'] + ', ' 
-                + feature['properties']['processingLevel'] + ', '
-                + feature['properties']['productType'] + ', '
-                + feature['_links']['download']['resourceId'] 
-                + ', ID=' + feature['properties']['id'])
+        try:
+            if ('properties' in feature) and ('acquisitionDate' in feature['properties']) and ('processingLevel' in feature['properties']) and ('productType' in feature['properties'])  and ('id' in feature['properties']) and ('download' in feature['_links']) and ('resourceId' in feature['_links']['download'][1]):
+                products.append(feature['properties']['acquisitionDate'] + ', ' 
+                    + feature['properties']['processingLevel'] + ', '
+                    + feature['properties']['productType'] + ', '
+                    + feature['_links']['download'][1]['resourceId'] 
+                    + ', ID=' + feature['properties']['id'])
+        except:
+            tb = traceback.format_exc()
+            logging.info('get_products_in_workspace: Exception during products.append. Has something changed in the OneAtlas API?')
+            logging.info('Exception - traceback: ' + tb)
     return products
 
 def get_api_key():
@@ -93,7 +97,7 @@ def get_token(api_key):
     payload='client_id=IDP&grant_type=api_key&apikey=' + api_key
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     response = requests.request('POST', url, headers=headers, data=payload)
-    logging.info('get_token response: ' + str(response.status_code))
+    logging.info('get_token response.status_code: ' + str(response.status_code))
     # TODO try except on HTTP403 (stale apikey)
     return loads(response.text)['access_token']
 
@@ -116,20 +120,6 @@ def get_product_geometry(selected_product, token):
         geometry = feature['geometry']
     return dumps(geometry)
 
-def extent_offset(in_feature, offset, out_feature):
-    d = arcpy.Describe(in_feature).extent
-    o = offset
-    #bl = arcpy.Point(d.XMin-o, d.YMin-o)
-    #tl = arcpy.Point(d.XMin-o, d.YMax+o)
-    #tr = arcpy.Point(d.XMax+o, d.YMax+o)
-    #br = arcpy.Point(d.XMax+o, d.YMin-o)
-    bl = arcpy.Point(d.XMax+o, d.YMax+o)
-    tl = arcpy.Point(d.XMax+o, d.YMin-o)
-    tr = arcpy.Point(d.XMin-o, d.YMin-o)
-    br = arcpy.Point(d.XMin-o, d.YMax+o)
-    offset_poly = arcpy.Polygon(arcpy.Array([bl, tl, tr, br]), spatial_reference=arcpy.Describe(in_feature).spatialReference)
-    return arcpy.CopyFeatures(offset_poly, out_feature)
-
 def get_dl_dir():
     with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), 'r') as settings_file:
         data = settings_file.read()
@@ -142,7 +132,7 @@ class ToolValidator:
     # Class to add custom behavior and properties to the tool and tool parameters.
     
     def __init__(self):
-        # set self.params for use in other function
+        # Set self.params for use in other function
         self.params = arcpy.GetParameterInfo()
 
     def initializeParameters(self):
@@ -152,7 +142,6 @@ class ToolValidator:
         self.params[6].enabled = False
         self.params[8].enabled = False
         self.params[9].enabled = False
-        self.params[10].enabled = False
         oad_api_key = get_api_key()
         if oad_api_key == 'your OneAtlas Data API key goes here' or ' ' in oad_api_key or oad_api_key == None:
             self.params[0].filter.list = ['Check your API key in: " ' + path.abspath(path.join(path.dirname(__file__), 'settings.json')) + ' and run this tool again.']
@@ -170,7 +159,6 @@ class ToolValidator:
 
         if self.params[4].value == True:
             self.params[3].value = True
-            # if self.params[1].value == True: 
             self.params[5].enabled = True
             self.params[6].enabled = True
             if self.params[6].value == 'Dynamic Imagery Layer':
@@ -180,7 +168,6 @@ class ToolValidator:
                     self.params[7].enabled = False
 
             if self.params[0].value:
-                logging.debug('updateParameters: self.params[0].value is set to: ' + self.params[0].value)
                 if self.params[0].value.split(',')[2].replace(' ','') == 'bundle':
                     self.params[8].enabled = True
                 else:
@@ -210,50 +197,41 @@ class ToolValidator:
         if self.params[1].value == False or self.params[1].value == None:
             if self.params[0].value is not None and 'Check your API key' not in self.params[0].filter.list[0]:
                 selected_product = self.params[0].value.split('=',1)[1]
-                logging.info('Selected product:' + selected_product)
+                logging.info('Selected product:' + self.params[0].value.split(',')[0] + ', ' + selected_product + ', ' + self.params[0].value.split(',')[3])
                 geojsonpoly = str(get_product_geometry(selected_product, self.params[9].value))
                 # Delete any existing feature
                 if int(arcpy.GetCount_management(out_fc)[0]) > 0:
                     arcpy.DeleteFeatures_management(out_fc)
                 # Insert the geometry and ID from selected product    
-                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
+                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'acquisitiondate'])
                 newPoly = arcpy.AsShape(geojsonpoly)
                 icur.insertRow([newPoly, self.params[0].value.split(',')[0]])
                 del icur
-                self.params[10].value = 'false'
                 arcpy.RecalculateFeatureClassExtent_management(out_fc)
 
-        elif self.params[1].value == True and 'Check your API key' not in self.params[0].filter.list[0] and self.params[10].value == 'false':
+        elif self.params[1].value == True and 'Check your API key' not in self.params[0].filter.list[0]:
             # Delete any existing features
             if int(arcpy.GetCount_management(out_fc)[0]) > 0:
                 arcpy.DeleteFeatures_management(out_fc)
-            # iterate over all products
+            # Iterate over all products
             logging.info('gemoetry for all products')
             for item in self.params[0].filter.list:
                 product = item.split('=',1)[1]                   
                 logging.info('product: ' + product)
                 geojsonpoly = str(get_product_geometry(product, self.params[9].value))
                 # Insert the geometry and ID from selected product    
-                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'id'])
+                icur = arcpy.da.InsertCursor(out_fc, ['SHAPE@', 'acquisitiondate'])
                 newPoly = arcpy.AsShape(geojsonpoly)
                 icur.insertRow([newPoly, item.split(',')[0]])
                 del icur
-            self.params[10].value = 'true'
-
-        #logging.debug('updateParameters - aprx: ' + str(aprx))
-        #logging.debug('updateParameters - aprx.activeView: ' + str(aprx.activeView))
-        #logging.debug('updateParameters - out_fc: ' + str(out_fc))
 
         arcpy.RecalculateFeatureClassExtent_management(out_fc)
         desc = arcpy.Describe(out_fc)
-        logging.info('Airbus_Results extent: ' + str(desc.extent))
-        #extent_offset_feature = join('memory', 'offset_feature')
-        #extent_offset(out_fc, 0.00001, extent_offset_feature)
-        #desc = arcpy.Describe(extent_offset_feature)      
         if len(aprx.listMaps()) > 0:
             aprx.activeView.camera.setExtent(desc.extent)
+            aprx.activeView.camera.scale*= 1.20
 
-        # update the settings json file with user's specified download directory         
+        # Update the settings json file with user's specified download directory         
         a_file = open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), 'r')
         json_object = load(a_file)
         json_object["download_dir"] = str(self.params[2].value)
@@ -261,20 +239,20 @@ class ToolValidator:
         dump(json_object, a_file)
         a_file.close()
         
-        # write parameter values to logfile
+        # Write all parameter values to log file
         idx = 0
-        while idx < 11:
+        while idx < len(self.params):
             try:
                 logging.debug('updateParameters: ' + str(idx) + ' ' + str(self.params[idx].value))
                 idx += 1
             except Exception as ex:
                 logging.debug('updateParameters: Exception: ' + str(idx) + ' ' + ex)
-
         return
 
     def updateMessages(self):
         # Customize messages for the parameters.
-        # This gets called after standard validation.
+        # This gets called after standard validation.        
+ 
         if not self.params[0].value:
             self.params[0].setErrorMessage('No product selection has been made.')
         if not self.params[2].value:
