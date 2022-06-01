@@ -21,7 +21,7 @@ def get_token(user_api_key):
     payload='client_id=IDP&grant_type=api_key&apikey=' + user_api_key
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     response = requests.request('POST', url, headers=headers, data=payload)
-    #todo try except on HTTP403 (stale apikey)
+    # TODO try except on HTTP403 (stale apikey)
     return loads(response.text)['access_token']
 
 def get_workspace_id(auth_header):
@@ -41,8 +41,8 @@ def get_products_in_workspace(auth_header, workspace_id):
     products = []
     for feature in loads(response.text)['features']:
         products.append(feature['properties']['id'] + ',' 
-            + feature['_links']['download']['href'] + ','
-            + feature['_links']['download']['resourceId'])
+            + feature['_links']['download'][1]['href'] + ','
+            + feature['_links']['download'][1]['resourceId'])
     return products
 
 def get_product_info(workspace_id, selected_product, auth_header):
@@ -51,8 +51,8 @@ def get_product_info(workspace_id, selected_product, auth_header):
     headers = {'Cache-Control': 'no-cache','Authorization': auth_header, 'Content-Type': 'application/json'}
     response = requests.request('GET', url, headers=headers, params=querystring)
     for feature in loads(response.text)['features']:
-        product_href = feature['_links']['download']['href']
-        product_resource_id = feature['_links']['download']['resourceId']
+        product_href = feature['_links']['download'][1]['href']
+        product_resource_id = feature['_links']['download'][1]['resourceId']
     return product_href, product_resource_id
 
 def download_product(href, filename, localdir):
@@ -92,9 +92,11 @@ def get_product_proc_level(product_folder):
                 # open the DIMAP metadata and discover the product processing level
                 import xml.etree.ElementTree as ET
                 root = ET.parse(dimap_file).getroot()
-                for x in root.iter('INSTRUMENT'):
+                # Changed INSTRUMENT to MISSION
+                for x in root.iter('MISSION'):
                     instruments.append(x.text)
-                for x in root.iter('INSTRUMENT_INDEX'):
+                # Changed INSTRUMENT_INDEX to MISSION_INDEX
+                for x in root.iter('MISSION_INDEX'):
                     instruments_idx.append(x.text)
                 for x in root.iter('SPECTRAL_PROCESSING'):
                     spec_procs.append(x.text)
