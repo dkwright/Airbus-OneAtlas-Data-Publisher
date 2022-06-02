@@ -55,13 +55,18 @@ def get_product_info(workspace_id, selected_product, auth_header):
         product_resource_id = feature['_links']['download'][1]['resourceId']
     return product_href, product_resource_id
 
-def download_product(href, filename, localdir):
+def download_product_stream(href, filename):
     AddMessage('Started downloading {0}'.format(filename))
     global auth_header
     headers = {'Authorization': auth_header}
-    image_archive = requests.request('GET', href, headers=headers)
-    with open(path.join(download_dir, filename), 'wb') as f:
-        f.write(image_archive.content)
+    with requests.get(href, stream=True, headers=headers) as r:
+        r.raise_for_status()
+        with open(path.join(download_dir, filename), 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                # If you have chunk encoded response uncomment if
+                # and set chunk_size parameter to None.
+                #if chunk: 
+                f.write(chunk)
     AddMessage('Finished downloading {0}'.format(filename))
     return
 
@@ -247,7 +252,7 @@ if __name__ == '__main__':
         AddMessage('Download Directory: ' + download_dir)
         product_href, product_resource_id = get_product_info(workspace_id, selected_product, auth_header)
         if not path.exists(path.join(download_dir, product_resource_id)):
-            download_product(product_href, product_resource_id, download_dir)
+            download_product_stream(product_href, product_resource_id)
         else:
             AddMessage('File {} already exists, skipping download.'.format(path.join(download_dir, product_resource_id)))
         if extract == 'true':
@@ -278,7 +283,7 @@ if __name__ == '__main__':
             archive_base_name = path.splitext(product_resource_id)[0]
             archive_local_path = path.join(download_dir, archive_base_name)
             if not path.exists(path.join(download_dir, product_resource_id)):
-                download_product(product.split(',')[1], product_resource_id, download_dir)
+                download_product_stream(product.split(',')[1], product_resource_id)
             else:
                 AddMessage('File {} already exists, skipping download.'.format(path.join(download_dir, product_resource_id)))
             if extract == 'true':
